@@ -366,6 +366,8 @@ const drepGrid = document.querySelector("#drepGrid");
 const emptyState = document.querySelector("#emptyState");
 const supporterCount = document.querySelector("#supporterCount");
 const drepResultCount = document.querySelector("#drepResultCount");
+const drepSearch = document.querySelector("#drepSearch");
+const supporterToggle = document.querySelector("#supporterToggle");
 const liveVoteCore = document.querySelector("#liveVoteCore");
 const liveVoteEyebrow = document.querySelector("#liveVoteEyebrow");
 const liveYesPercent = document.querySelector("#liveYesPercent");
@@ -622,12 +624,15 @@ logoField.innerHTML = `
   >
     ${team.status ? `<span class="team-status">${team.status}</span>` : ""}
     <img src="${logoSource}" alt="${team.name}" loading="${index < 8 ? "eager" : "lazy"}" />
-    <span class="team-name">${String(index + 1).padStart(2, "0")} · ${team.name}</span>
+    <span class="team-name">${team.name}</span>
   </a>
   `;
 }).join("");
 
 const orderedSupporters = [...supporters].sort((a, b) => b[2] - a[2]);
+const SUPPORTER_POWER_THRESHOLD = 16_000_000;
+let showAllSupporters = false;
+let supporterQuery = "";
 
 function getPowerTier(power) {
   if (power >= 100_000_000) return ["keystone", "PILAR"];
@@ -700,15 +705,36 @@ function renderSupporters(items) {
   `;
   }).join("");
   setCountTarget(supporterCount, supporters.length);
-  drepResultCount.textContent = `Mostrando ${items.length} de ${supporters.length} votantes Sí verificados`;
+  drepResultCount.textContent = `Mostrando ${items.length} de ${supporters.length} partes interesadas verificadas`;
   emptyState.hidden = items.length !== 0;
 }
 
-renderSupporters(orderedSupporters);
+function updateSupporterView() {
+  const matchingSupporters = orderedSupporters.filter(([name, id]) =>
+    `${name} ${id}`.toLocaleLowerCase().includes(supporterQuery)
+  );
+  const visibleSupporters = showAllSupporters || supporterQuery
+    ? matchingSupporters
+    : matchingSupporters.filter(([, , power]) => power >= SUPPORTER_POWER_THRESHOLD);
 
-document.querySelector("#drepSearch").addEventListener("input", (event) => {
-  const query = event.target.value.trim().toLocaleLowerCase();
-  renderSupporters(orderedSupporters.filter(([name, id]) => `${name} ${id}`.toLocaleLowerCase().includes(query)));
+  renderSupporters(visibleSupporters);
+  supporterToggle.hidden = Boolean(supporterQuery);
+  supporterToggle.setAttribute("aria-expanded", String(showAllSupporters));
+  supporterToggle.textContent = showAllSupporters
+    ? "Mostrar solo las partes interesadas con 16M+ ADA"
+    : "Mostrar todas las partes interesadas";
+}
+
+updateSupporterView();
+
+drepSearch.addEventListener("input", (event) => {
+  supporterQuery = event.target.value.trim().toLocaleLowerCase();
+  updateSupporterView();
+});
+
+supporterToggle.addEventListener("click", () => {
+  showAllSupporters = !showAllSupporters;
+  updateSupporterView();
 });
 
 const revealObserver = new IntersectionObserver((entries) => {
